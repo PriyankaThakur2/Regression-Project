@@ -1,0 +1,399 @@
+---
+title: "Regression Project"
+author: "Priyanka Thakur"
+date: "10/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+# PREPROCESSING
+
+
+```{r}
+rm(list=ls())
+library(rio)
+library(Hmisc)
+```
+
+
+```{r}
+
+project=import(ʺ6304 Regression Project Data.csvʺ)
+colnames(project)=tolower(make.names(colnames(project)))
+attach(project)
+
+```
+
+## Taking Sample
+
+```{r}
+
+set.seed(86335105)
+some.project=project[sample(1:nrow(project),100,replace=FALSE),]
+str(some.project)
+
+dim(some.project)
+
+```
+
+## Cleaning the data
+
+```{r}
+
+mydata = subset(some.project, trip_miles!=0 & trip_seconds != 0)
+summary(mydata)
+
+dim(mydata)
+str(mydata)
+
+
+```
+
+EXPLANATION: If the variables trip_seconds and trip_miles are zero, then it means there was no trip and there should not be any payment for that. There are some entries in the data set which have the payment details even though the trip_seconds and trip_miles are zero.So, While cleansing the data, the rows for which the values are zero, have been removed. The cleansed data set has 75 observations.
+
+
+# ANALYSIS
+
+## Summaries and Density Plots of continuous variables
+
+
+```{r}
+plot(density(mydata$trip_seconds),lwd=3,main="Density plot of Trip Seconds")
+
+summary(mydata$trip_seconds)
+
+plot(density(mydata$trip_miles),lwd=3, main="Density plot of Trip Miles")
+
+summary(mydata$trip_miles)
+
+plot(density(mydata$fare),lwd=3, main="Density plot of Fares")
+
+summary(mydata$fare)
+
+plot(density(mydata$tips),lwd=3, main="Density plot of Tips")
+
+summary(mydata$tips)
+
+plot(density(mydata$tolls),lwd=3, main="Density plot of Tolls")
+
+summary(mydata$tolls)
+
+
+plot(density(mydata$extras), lwd=3, main="Density Plot of extras")
+
+
+summary(mydata$extras)
+
+plot(density(mydata$trip_total),lwd=3, main="Density plot of TripTotal")
+
+summary(mydata$trip_total)
+
+
+```
+
+## Levels of Payment types
+
+```{r}
+
+Paymentmethods = split(mydata,mydata$payment_type)
+str(Paymentmethods)
+Cash = Paymentmethods[[1]]
+CreditCard = Paymentmethods[[2]]
+
+summary(Cash)
+summary(CreditCard)
+dim(Cash)
+dim(CreditCard)
+str(Cash)
+str(CreditCard)
+
+
+
+```
+
+
+The number of observations for payment_type Cash is 48
+The number of observations for payment_type CreditCard is 26
+
+
+## Correlation
+
+### Copy the continuous variables to a new data object
+
+### Correlation analysis of the continuous variables
+
+```{r}
+some.mydata = subset(mydata, select = c("trip_seconds", "trip_miles", "fare" , "tips" , "tolls", "extras", "trip_total"))
+plot(some.mydata)
+cor(some.mydata)
+```
+
+The Correlation matrix shows the correlation among all the continuous variables in the data set. The taxi_id and payment_type have been excluded. The value of correlation of a variable with itself is 1.
+
+
+## Correlation matrix with p values
+
+```{r}
+xx=rcorr(as.matrix(some.mydata))
+xx
+
+```
+
+This matrix shows all the correlation values among all the values along with the p-values.
+
+## Conducting a regression
+
+### Using trip_seconds, trip_miles, payment_type
+
+```{r}
+
+regout1=lm(fare~trip_seconds+trip_miles+payment_type,data=mydata)
+summary(regout1)
+# Verifying the r^2 value.
+cor(regout1$fitted.values,mydata$fare)^2
+plot(mydata$fare,regout1$fitted.values,lwd=3,main="Actual v. Fitted Values for model 1")
+
+```
+
+
+The beta coefficients are as follows:
+for intercept - 3.35 
+for trip_seconds - 0.003 
+for trip_miles - 1.92
+For 1.92 increase in trip_miles, the fare increases by 3.35 For 0.003 increase in trip_seconds, the fare increases by 3.35
+From the Regression ouput, the p-values for trip_seconds and trip_miles are significant and we can reject teh Null Hypothesis.
+
+
+### Adding square of trip_miles
+
+```{r}
+
+regout2=lm(fare~trip_seconds+trip_miles+I(trip_miles^2)+payment_type,data=mydata)
+summary(regout2)
+
+#Verifying the r^2 value
+cor(regout2$fitted.values,mydata$fare)^2
+
+plot(mydata$fare, regout2$fitted.values, lwd=3, main="Actual v. Fitted Values for model 2")
+
+```
+
+The p-value for square value of trip_miles is less significant
+
+### Adding square oftrip_seconds
+
+```{r}
+
+regout3=lm(fare~trip_seconds+trip_miles+I(trip_seconds^2)+payment_type,data=mydata)
+summary(regout3)
+
+#Verifying the r^2 value
+cor(regout3$fitted.values,mydata$fare)^2
+
+
+plot(mydata$fare, regout3$fitted.values, lwd=3, main="Actual v. Fitted Values for model 3")
+
+```
+
+### Checking for interaction
+
+```{r}
+
+regout4=lm(fare~trip_seconds+trip_miles+I(trip_miles^2)+
+               trip_miles:trip_seconds,data=mydata)
+summary(regout4)
+
+#Verifying the r^2 value
+cor(regout4$fitted.values,mydata$fare)^2
+
+plot(mydata$fare, regout4$fitted.values, lwd=3, main="Actual v. Fitted Values for model 4")
+
+```
+
+
+The p-values are significant and we can reject the Null Hypothesis. And correlation coefficient is 0.995
+Model 4 is the best fit among all as it has the highest r^2 value.
+
+
+## Model’s conformity with LINE
+
+### Linearity
+
+```{r}
+
+plot(mydata$fare,regout4$fitted.values,
+     pch=19,main="Actuals v. Fitted Values for Best fit")
+abline(0,1,lwd=3,col="red")
+
+
+```
+
+We can say that the data is linear
+
+### Independence
+
+#### The Durbin-Watson Test
+
+```{r}
+
+library(car)
+durbinWatsonTest(regout4)
+
+
+```
+
+From the result, we can reject the Null Hypothesis. and the data has No Autocorrelation.
+
+#### Normality
+
+```{r}
+
+qqnorm(regout4$residuals,pch=19)
+qqline(regout4$residuals,lwd=3,col="red")
+
+
+```
+
+The data is mostly normally distributed
+
+#### Equality of Variances
+
+```{r}
+plot(regout4$fitted.values,rstandard(regout4),pch=19)
+abline(0,0,col="red",lwd=3)
+
+
+```
+
+There is a form of some pattern. We can say that teh data is not equally distributed
+
+
+#### High Leverage point
+
+```{r}
+
+lev=hat(model.matrix(regout4))
+plot(lev,pch=19)
+abline(3*mean(lev),0,col="red",lwd=3)
+mydata[lev>(3*mean(lev)),]
+```
+
+### FInding outliers
+
+```{r}
+
+boxplot(mydata$fare, col="red")
+# the max value
+max(mydata$fare)
+
+#data frame row which has the max value
+which(mydata$fare==51.25)
+
+mydata[45,]
+#New data frame except for teh outlier
+reduced.mydata=mydata[-45, ]
+boxplot(reduced.mydata$fare, col="blue")
+
+#rerun the regression.
+regout5=lm(fare~trip_seconds+trip_miles+I(trip_miles^2)+
+               trip_miles:trip_seconds,data=reduced.mydata)
+summary(regout5)
+#COnformity with LINE
+##Linearity
+
+plot(reduced.mydata$fare,regout5$fitted.values,
+     pch=19,main="Actuals v. Fitted Values")
+abline(0,1,lwd=3,col="red")
+
+##Independence
+
+durbinWatsonTest(regout5)
+
+##Normality
+
+qqnorm(regout5$residuals,pch=19)
+qqline(regout5$residuals,lwd=3,col="red")
+
+##Equality of Variances
+
+plot(regout5$fitted.values,rstandard(regout5),pch=19)
+abline(0,0,col="red",lwd=3, "Plot")
+
+```
+
+
+We find out the outlier and make a new data frame without the outlier and conduct teh Regression on the new data frame. and checked the conformity with LINE.
+
+
+# TAKING A SECOND SAMPLE FROM MASTER DATA SET
+
+We are taking a new sample of 100 as new.project from the master data set
+
+```{r}
+
+set.seed(86335110)
+new.project=project[sample(1:nrow(project),100,replace=FALSE),]
+str(new.project)
+
+dim(new.project)
+
+
+```
+
+## Cleaning the new sample
+
+```{r}
+
+my.newdata = subset(new.project, trip_miles!=0 & trip_seconds != 0)
+summary(my.newdata)
+
+dim(my.newdata)
+
+str(my.newdata)
+
+```
+
+the cleansed data set has 73 observations in the data frame.
+
+## Fitting the model to the new sample set
+
+```{r}
+
+regout=lm(fare~trip_seconds+trip_miles+I(trip_miles^2)+
+               trip_miles:trip_seconds,data=mydata)
+summary(regout)
+
+#Verifying the r^2 value
+
+cor(regout$fitted.values,mydata$fare)^2
+
+plot(mydata$fare, regout$fitted.values, lwd=3, main="Actual v. Fitted Values for New sample")
+
+```
+
+## Evaluating the model on new set
+
+```{r}
+
+plot(mydata$fare,regout$fitted.values,
+     pch=19,main="Actuals v. Fitted Values for Best fit")
+abline(0,1,lwd=3,col="red")
+qqnorm(regout$residuals,pch=19)
+qqline(regout$residuals,lwd=3,col="red")
+plot(regout$fitted.values,rstandard(regout),pch=19)
+abline(0,0,col="red",lwd=3)
+
+```
+
+
+The model fits well on the other sample as well.
